@@ -1,27 +1,14 @@
+use std::env;
+use std::fs::File;
+use std::io::{self, BufRead};
+use std::path::Path;
+
 fn main() {
+   let args: Vec<String> = env::args().collect();
    let mut fields = [[511 as u16;9];9];
-   fields[0][0] = 1 << 7;
-   fields[1][2] = 1 << 2;
-   fields[1][3] = 1 << 5;
-   fields[2][1] = 1 << 6;
-   fields[2][4] = 1 << 8;
-   fields[2][6] = 1 << 1;
-   fields[3][1] = 1 << 4;
-   fields[3][5] = 1 << 6;
-   fields[4][4] = 1 << 3;
-   fields[4][5] = 1 << 4;
-   fields[4][6] = 1 << 6;
-   fields[5][3] = 1;
-   fields[5][7] = 1 << 2;
-   fields[6][2] = 1;
-   fields[6][7] = 1 << 5;
-   fields[6][8] = 1 << 7;
-   fields[7][2] = 1 << 7;
-   fields[7][3] = 1 << 4;
-   fields[7][7] = 1;
-   fields[8][1] = 1 << 8;
-   fields[8][6] = 1 << 3;
    let mut tmp: u16;
+
+   read_file(&args[1], &mut fields);
 
    // remove trivial values
    for i in 0 .. 9 {
@@ -36,6 +23,33 @@ fn main() {
    depth_search(&mut fields);
 
    print(fields);
+}
+
+fn read_file(file_name: & String, fields: &mut [[u16;9];9]) {
+    let mut row: usize = 0;
+    let mut col: usize = 0;
+
+    if let Ok(lines) = read_lines(file_name) {
+        for line in lines {
+            if let Ok(ip) = line {
+                for field in ip.split("|") {
+                    match field {
+                        "." | "-" | "x" => fields[row][col] = 511,
+                        _ => fields[row][col] = 1u16 << (field.parse::<u16>().unwrap() - 1u16),
+                    }
+                    col += 1;
+                }
+                col = 0;
+                row += 1;
+            }
+        }
+    }
+}
+
+fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
+where P: AsRef<Path>, {
+    let file = File::open(filename)?;
+    Ok(io::BufReader::new(file).lines())
 }
 
 struct Candidate {
@@ -142,21 +156,15 @@ fn depth_search(fields: &mut[[u16;9];9]) -> bool {
         return true;
     }
 
-    println!("found candidate row={} col={}", candidate.row, candidate.col);
-
     for i in 1..10 {
        if (fields[candidate.row][candidate.col] & (1 << (i-1))) == 0 {
-           println!("skipping value {} for {}", (1<<(i-1)), fields[candidate.row][candidate.col]);
            continue;
        }
 
        let mut cpy: [[u16;9];9] = unsafe { std::mem::uninitialized() };
        copy(fields, &mut cpy);
-       println!("setting field {},{} to {}", candidate.row, candidate.col, i);
        if set(&mut cpy, candidate.row, candidate.col, i) {
-           println!("now propagate");
            if propagate_set(&mut cpy, candidate.row, candidate.col, i) {
-               println!("new depth search");
                if depth_search(&mut cpy) {
                    copy(&cpy, fields); // TODO: slow
                    return true;
@@ -203,4 +211,3 @@ fn num_remaining(val: u16) -> u8 {
 
     return count;
 }
-
