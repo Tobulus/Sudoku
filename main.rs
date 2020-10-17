@@ -101,7 +101,7 @@ fn set(fields: &mut [[u16;9];9], row: usize, col: usize, val: u16) -> bool {
     return true;
 }
 
-fn remove(fields: &mut [[u16;9];9], row: usize, col: usize, val: u16) -> bool{
+fn remove(fields: &mut [[u16;9];9], row: usize, col: usize, val: u16) -> bool {
     let is_set: bool = is_single_val(fields[row][col]);
     let bitmask: u16 = 1 << (val - 1);
     fields[row][col] &= !bitmask;
@@ -137,6 +137,22 @@ fn propagate_set(fields: &mut[[u16;9];9], row: usize, col: usize, val: u16) -> b
 
         if !remove(fields, row, i, val) {
             return false;
+        }
+    }
+
+    // remove the value in the same 3x3 square
+    for i in 0 .. 3 {
+        for j in 0 .. 3 {
+            let row_idx = (row / 3) * 3 + i;
+            let col_idx = (col / 3) * 3 + j;
+            
+            if row == row_idx || col == col_idx {
+                continue;
+            }
+
+            if !remove(fields, row_idx, col_idx, val) {
+                return false;
+            }
         }
     }
 
